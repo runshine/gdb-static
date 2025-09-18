@@ -1,20 +1,20 @@
 [submodule "cpython-static"]
 	path = src/submodule_packages/cpython-static
-	url = git@github.com:guyush1/cpython-static.git
+	url = https://github.com/guyush1/cpython-static.git
 	branch = python3.12-static
 [submodule "binutils-gdb-static"]
 	path = src/submodule_packages/binutils-gdb
-	url = git@github.com:guyush1/binutils-gdb.git
+	url = https://github.com/guyush1/binutils-gdb.git
 	branch = gdb-static
 [submodule "src/submodule_packages/pygments"]
 	path = src/submodule_packages/pygments
-	url = git@github.com:pygments/pygments.git
+	url = https://github.com/pygments/pygments.git
 [submodule "src/submodule_packages/libexpat"]
 	path = src/submodule_packages/libexpat
-	url = git@github.com:guyush1/libexpat.git
+	url = https://github.com/guyush1/libexpat.git
 [submodule "xz"]
 	path = src/submodule_packages/xz
 	url = https://github.com/tukaani-project/xz.git
 [submodule "src/submodule_packages/libffi"]
 	path = src/submodule_packages/libffi
-	url = git@github.com:libffi/libffi.git
+	url = https://github.com/libffi/libffi.git
