@@ -1,0 +1,41 @@
+name: build_gdb_musl
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TTY_ARG: "" # Disable interactive build mode in cicd since it does not contain a tty device.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # - name: Checkout https://github.com/guyush1/gdb-static.git
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: runshine/gdb-static
+      #     submodules: recursive
+
+      - name: Install dependencies
+        run: sudo apt-get install -y wget
+
+      - name: Build
+        run: make build -j$((`nproc`+1))
+
+      - name: Pack
+        run: make pack
+
+      - name: List Dir
+        run: ls -lRt ${{ github.workspace }}
+
+      - name: Upload binary to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdb-linux-multi
+          path: ${{ github.workspace }}/build/artifacts/gdb-static-*.gz
+
