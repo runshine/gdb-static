@@ -515,14 +515,14 @@ function main() {
 
 SRC_ROOT_DIR="$(cd $(dirname "$0");cd ..;pwd)"
 
-#if [ ! -d "$1/packages" ];then
-#  mkdir -p "$1/packages"
-#fi
-#rm "$1/packages/*" -rf
-#"$SRC_ROOT_DIR/compilation/download_packages.sh"  "$1/packages"
-#for x in $SRC_ROOT_DIR/submodule_packages/*;do
-#    cp -R "$x" "$1/packages/"
-#done
+if [ ! -d "$1/packages" ];then
+  mkdir -p "$1/packages"
+fi
+rm "$1/packages/*" -rf
+"$SRC_ROOT_DIR/compilation/download_packages.sh"  "$1/packages"
+for x in $SRC_ROOT_DIR/submodule_packages/*;do
+    cp -R "$x" "$1/packages/"
+done
 sudo apt install -y docbook2x m4 build-essential autoconf flex bison libtool autopoint pkg-config libzstd-dev libssl-dev
 sudo apt install -y xxhash wget curl libssl-dev libtinfo-dev libreadline-dev libgmp-dev libmpfr-dev libexpat-dev liblzma-dev libffi-dev libbz2-dev libgdbm-dev libdb-dev uuid-dev
 
