@@ -13,6 +13,10 @@ COPY . /build/
 
 RUN /build/src/compilation/build_native.sh  /build/  /source/
 
+RUN strip  /build/packages/binutils-gdb/build-host-full/gdbserver/gdbserver
+
+RUN strip  /build/packages/binutils-gdb/build-host-full/gdb/gdb
+
 FROM busybox:latest
 
 COPY --from=builder /build/packages/binutils-gdb/build-host-full/gdbserver/gdbserver  /opt/
