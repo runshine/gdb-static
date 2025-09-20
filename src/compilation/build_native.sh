@@ -54,21 +54,8 @@ function set_up_base_lib_search_paths() {
     #
     # Parameters:
     # $1: iconv build dir
-    # $2: gmp build dir
-    # $3: mpfr build dir
-    # $4: ncursesw build dir
-    # $5: expat build dir
     local iconv_build_dir="$1"
-    local gmp_build_dir="$2"
-    local mpfr_build_dir="$3"
-    local ncursesw_build_dir="$4"
-    local expat_build_dir="$5"
-
     set_up_lib_search_path $iconv_build_dir 0
-    set_up_lib_search_path $gmp_build_dir 0
-    set_up_lib_search_path $mpfr_build_dir 0
-    set_up_lib_search_path $ncursesw_build_dir 1
-    set_up_lib_search_path $expat_build_dir 1
 }
 
 function build_iconv() {
@@ -122,283 +109,6 @@ function build_iconv() {
     popd > /dev/null
 }
 
-function build_lzma() {
-    # Build liblzma.
-    #
-    # Parameters:
-    # $1: lzma package directory
-    # $2: target architecture
-    #
-    # Echoes:
-    # The lzma build directory
-    #
-    # Returns:
-    # 0: success
-    # 1: failure
-
-    local lzma_dir="$1"
-    local target_arch="host"
-    local lzma_build_dir="$lzma_dir/build-$target_arch"
-
-    echo "$lzma_build_dir"
-    mkdir -p "$lzma_build_dir"
-
-    if [[ -f "$lzma_build_dir/lib/liblzma.a" ]]; then
-        >&2 echo "Skipping build: lzma already built for $target_arch"
-        return 0
-    fi
-
-    pushd "$lzma_build_dir" > /dev/null
-
-    >&2 fancy_title "Building liblzma for $target_arch"
-
-    # Make sure configure exists by running autogen.sh
-    (
-        cd .. && ./autogen.sh 1>&2
-    )
-
-    # lzma's autoconf contains a bug, it's instal prefix is relative
-    # to the current build directory.
-    # Hence, we set the prefix here to "/" instead of realpath . .
-    ../configure --enable-static "CC=$CC" "CXX=$CXX" \
-        "CFLAGS=$CFLAGS" "CXXFLAGS=$CXXFLAGS" --prefix="/" 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) install DESTDIR=$lzma_build_dir 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 fancy_title "Finished building liblzma for $target_arch"
-
-    popd > /dev/null
-}
-
-
-function build_libgmp() {
-    # Build libgmp.
-    #
-    # Parameters:
-    # $1: libgmp package directory
-    # $2: target architecture
-    #
-    # Echoes:
-    # The libgmp build directory
-    #
-    # Returns:
-    # 0: success
-    # 1: failure
-
-    local gmp_dir="$1"
-    local target_arch="host"
-    local gmp_build_dir="$gmp_dir/build-$target_arch"
-
-    echo "$gmp_build_dir"
-    mkdir -p "$gmp_build_dir"
-
-    if [[ -f "$gmp_build_dir/lib/libgmp.a" ]]; then
-        >&2 echo "Skipping build: libgmp already built for $target_arch"
-        return 0
-    fi
-
-    pushd "$gmp_build_dir" > /dev/null
-
-    >&2 fancy_title "Building libgmp for $target_arch"
-
-    ../configure --enable-static "CC=$CC" "CXX=$CXX" \
-        "CFLAGS=$CFLAGS" "CXXFLAGS=$CXXFLAGS" --prefix="$(realpath .)" 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) install 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 fancy_title "Finished building libgmp for $target_arch"
-
-    popd > /dev/null
-}
-
-function build_ncurses() {
-    # Build libncursesw.
-    #
-    # Parameters:
-    # $1: libncursesw package directory
-    # $2: target architecture
-    #
-    # Echoes:
-    # The libncursesw build directory
-    #
-    # Returns:
-    # 0: success
-    # 1: failure
-    local ncurses_dir="$1"
-    local target_arch="host"
-    local ncurses_build_dir="$ncurses_dir/build-$target_arch"
-
-    # ncurses needs a custom install dir due to it's non-standard compilation directories.
-    local ncurses_install_dir="$ncurses_build_dir/output"
-
-    echo "$ncurses_install_dir"
-    mkdir -p "$ncurses_install_dir"
-
-    if [[ -f "$ncurses_install_dir/lib/libncursesw.a" ]]; then
-        >&2 echo "Skipping build: libncursesw already built for $target_arch"
-        return 0
-    fi
-
-    pushd "$ncurses_build_dir" > /dev/null
-
-    >&2 fancy_title "Building libncursesw for $target_arch"
-
-    ../configure --enable-static "CC=$CC" "CXX=$CXX" \
-        "CFLAGS=$CFLAGS" "CXXFLAGS=$CXXFLAGS" "--enable-widec" \
-        --prefix="$ncurses_install_dir" --with-default-terminfo-dir="/usr/share/terminfo"  1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    # Install the include & library dirs, but not the terminfo database.
-    # The user is responsible for supplying the terminal database.
-    make -j$(nproc) install.includes install.libs 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 fancy_title "Finished building libncursesw for $target_arch"
-
-    popd > /dev/null
-}
-
-function build_libexpat() {
-    # Build libexpat.
-    #
-    # Parameters:
-    # $1: libexpat package directory
-    # $2: target architecture
-    #
-    # Echoes:
-    # The libexpat build directory
-    #
-    # Returns:
-    # 0: success
-    # 1: failure
-    local libexpat_dir="$1"
-    local target_arch="host"
-    local libexpat_build_dir="$libexpat_dir/build-$target_arch"
-
-    echo "$libexpat_build_dir"
-    mkdir -p "$libexpat_build_dir"
-
-    if [[ -f "$libexpat_build_dir/lib/libexpat.a" ]]; then
-        >&2 echo "Skipping build: libexpat already built for $target_arch"
-        return 0
-    fi
-
-    pushd "$libexpat_build_dir" > /dev/null
-
-    >&2 fancy_title "Building libexpat for $target_arch"
-
-    # Generate configure if it doesnt exist.
-    if [[ ! -f "$libexpat_build_dir/../expat/configure" ]]; then
-        >&2 ../expat/buildconf.sh ../expat/
-    fi
-
-    ../expat/configure --enable-static "CC=$CC" "CXX=$CXX" \
-        "CFLAGS=$CFLAGS" "CXXFLAGS=$CXXFLAGS" --prefix="$(realpath .)" 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) install 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 fancy_title "Finished building libexpat for $target_arch"
-
-    popd > /dev/null
-}
-
-function build_libffi() {
-    # Build libffi, for the ctypes python module.
-    #
-    # Parameters:
-    # $1: libffi package directory
-    # $2: Target architecture
-    local libffi_dir="$1"
-    local target_arch="host"
-
-    pushd "${libffi_dir}" > /dev/null
-
-    local libffi_build_dir="$libffi_dir/build-$target_arch"
-
-    # libffi needs a custom install dir due to it's non-standard compilation directories.
-    local libffi_install_dir="$libffi_build_dir/output"
-    echo "${libffi_install_dir}"
-
-    # Creates both the installation and build dirs because install is in build.
-    mkdir -p "${libffi_install_dir}"
-
-    if [[ -f "$libffi_install_dir/lib/libffi.a" ]]; then
-        >&2 echo "Skipping build: libffi already built for $target_arch"
-        return 0
-    fi
-
-    >&2 ./autogen.sh
-    pushd "${libffi_build_dir}" > /dev/null
-
-    >&2 fancy_title "Building libffi for $target_arch"
-
-    >&2 CFLAGS="${CFLAGS} -DNO_JAVA_RAW_API" ../configure \
-        --enable-silent-rules \
-        --enable-static \
-        --disable-shared \
-        --disable-docs \
-        --prefix="${libffi_install_dir}"
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 make -j$(nproc)
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 make -j$(nproc) install
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 fancy_title "Finished building libffi for $target_arch"
-
-    popd > /dev/null
-    popd > /dev/null
-}
 
 function add_to_pkg_config_path() {
     # This method add directories to the list that pkg-config looks for .pc (package config) files
@@ -463,7 +173,7 @@ function build_python() {
     mkdir -p "$python_lib_dir"
 
     # Having a python-config file is an indication that we successfully built python.
-    if [[ -f "$python_lib_dir/python-config" ]]; then
+    if [[ -f "$python_lib_dir/bin/python3-config" ]]; then
         >&2 echo "Skipping build: libpython already built for $target_arch"
         return 0
     fi
@@ -516,88 +226,13 @@ function build_python() {
     popd > /dev/null
 }
 
-function build_libmpfr() {
-    # Build libmpfr.
-    #
-    # Parameters:
-    # $1: mpfr package directory
-    # $2: libgmp build directory
-    # $3: target architecture
-    #
-    # Echoes:
-    # The libmpfr build directory
-    #
-    # Returns:
-    # 0: success
-    # 1: failure
-
-    local mpfr_dir="$1"
-    local libgmp_build_dir="$2"
-    local target_arch="host"
-    local mpfr_build_dir="$mpfr_dir/build-$target_arch"
-
-    mkdir -p "$mpfr_build_dir"
-    echo "$mpfr_build_dir"
-
-    if [[ -f "$mpfr_build_dir/lib/libmpfr.a" ]]; then
-        >&2 echo "Skipping build: libmpfr already built for $target_arch"
-        return 0
-    fi
-
-    pushd "$mpfr_dir/build-$target_arch" > /dev/null
-
-    >&2 fancy_title "Building libmpfr for $target_arch"
-
-    ../configure --enable-static --prefix="$(realpath .)" "--with-gmp=$libgmp_build_dir" \
-        "CC=$CC" "CXX=$CXX"  \
-        "CFLAGS=$CFLAGS" "CXXFLAGS=$CXXFLAGS" 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    make -j$(nproc) install 1>&2
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    >&2 fancy_title "Finished building libmpfr for $target_arch"
-
-    popd > /dev/null
-}
 
 function build_gdb() {
-    # Configure and build gdb.
-    #
-    # Parameters:
-    # $1: gdb directory
-    # $2: target architecture
-    # $3: libiconv prefix
-    # $4: libgmp prefix
-    # $5: libmpfr prefix
-    # $6: liblzma prefix
-    # $7: build mode: slim / full.
-    # $8: gdb cross-architecture binary format support formats (relevant for full builds only).
-    #
-    # Echoes:
-    # The gdb build directory
-    #
-    # Returns:
-    # 0: success
-    # 1: failure
-
     local gdb_dir="$1"
     local target_arch="$2"
     local libiconv_prefix="$3"
-    local libgmp_prefix="$4"
-    local libmpfr_prefix="$5"
-    local liblzma_prefix="$6"
-    local full_build="$7"
-    local gdb_bfd_archs="$8"
+    local full_build="yes"
+    local gdb_bfd_archs="all"
 
     local extra_flags=()
     if [[ "$full_build" == "yes" ]]; then
@@ -608,18 +243,17 @@ function build_gdb() {
         if [[ $full_build_python_support -eq 1 ]]; then
             ls -ll "$gdb_dir/../cpython-static/build-$target_arch"
             extra_flags+=("--with-python=$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config")
-            #extra_flags+=("--with-python=/home/runshine/CLionProjects/gdb-static/src/compilation/build/packages/cpython-static/build-host/bin/python3-config")
             if [ ! -f "$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config" ];then
-              echo "python faild, unable to continue"
+              echo "python faild, unable to continue" 1>&2
               exit 255
             else
               if [ "x$(cat /etc/os-release|grep ubuntu)" != "x" ];then
-                sed -i 's/SYSLIBS="$LIBM $LIBC"/SYSLIBS="-lssl -lcrypto -latomic $LIBM $LIBC"/g' "$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config"
+                sed -i 's/SYSLIBS="$LIBM $LIBC"/SYSLIBS="-llzma -lbz2 -lgdbm -ldb -luuid -lreadline -ltinfo -lssl -lcrypto -latomic $LIBM $LIBC"/g' "$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config"
               elif [ "x$(cat /etc/os-release|grep debian)" != "x" ];then
-                sed -i 's/SYSLIBS="$LIBM $LIBC"/SYSLIBS="-llzma -lbz2 -lgdbm -ldb -luuid -lreadline -lssl -lcrypto -latomic $LIBM $LIBC"/g' "$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config"
+                sed -i 's/SYSLIBS="$LIBM $LIBC"/SYSLIBS="-llzma -lbz2 -lgdbm -ldb -luuid -lreadline -ltinfo -lssl -lcrypto -latomic $LIBM $LIBC"/g' "$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config"
               else
                 echo "use default build sed" 1>&2
-                sed -i 's/SYSLIBS="$LIBM $LIBC"/SYSLIBS="-lssl -lcrypto -latomic $LIBM $LIBC"/g' "$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config"
+                sed -i 's/SYSLIBS="$LIBM $LIBC"/SYSLIBS="-llzma -lbz2 -lgdbm -ldb -luuid -lreadline -ltinfo -lssl -lcrypto -latomic $LIBM $LIBC"/g' "$gdb_dir/../cpython-static/build-$target_arch/bin/python3-config"
               fi
             fi
         else
@@ -665,11 +299,9 @@ function build_gdb() {
                  --with-system-gdbinit="/etc/gdb/gdbinit" --with-system-gdbinit-dir="/etc/gdb/gdbinit.d" \
                  --with-jit-reader-dir="/usr/lib/gdb" \
                  --with-libiconv-prefix="$libiconv_prefix" --with-libiconv-type=static \
-                 --with-gmp="$libgmp_prefix" \
-                 --with-mpfr="$libmpfr_prefix" \
                  --enable-tui \
                  --with-expat --with-libexpat-type=static \
-                 --with-lzma=yes --with-liblzma-prefix="$liblzma_prefix" --with-liblzma-type="static" \
+                 --with-lzma=yes --with-liblzma-type="static" \
                  "${extra_flags[@]}" 1>&2
     if [[ $? -ne 0 ]]; then
         return 1
@@ -684,6 +316,64 @@ function build_gdb() {
 
     popd > /dev/null
 }
+
+
+function build_libffi() {
+    # Build libffi, for the ctypes python module.
+    #
+    # Parameters:
+    # $1: libffi package directory
+    # $2: Target architecture
+    local libffi_dir="$1"
+    local target_arch="$2"
+
+    pushd "${libffi_dir}" > /dev/null
+
+    local libffi_build_dir="$(realpath "$libffi_dir/build-$target_arch")"
+
+    # libffi needs a custom install dir due to it's non-standard compilation directories.
+    local libffi_install_dir="$libffi_build_dir/output"
+    echo "${libffi_install_dir}"
+
+    # Creates both the installation and build dirs because install is in build.
+    mkdir -p "${libffi_install_dir}"
+
+    if [[ -f "$libffi_install_dir/lib/libffi.a" ]]; then
+        >&2 echo "Skipping build: libffi already built for $target_arch"
+        return 0
+    fi
+
+    >&2 ./autogen.sh
+    pushd "${libffi_build_dir}" > /dev/null
+
+    >&2 fancy_title "Building libffi for $target_arch"
+
+    >&2 CFLAGS="${CFLAGS} -DNO_JAVA_RAW_API" ../configure \
+        --enable-silent-rules \
+        --enable-static \
+        --disable-shared \
+        --disable-docs \
+        --prefix="${libffi_install_dir}"
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    >&2 make -j$(nproc)
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    >&2 make -j$(nproc) install
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    >&2 fancy_title "Finished building libffi for $target_arch"
+
+    popd > /dev/null
+    popd > /dev/null
+}
+
 
 function install_gdb() {
     # Install gdb binaries to an artifacts directory.
@@ -751,23 +441,13 @@ function build_and_install_gdb() {
 
     local gdb_dir="$1"
     local libiconv_prefix="$2"
-    local libgmp_prefix="$3"
-    local libmpfr_prefix="$4"
-    local liblzma_prefix="$5"
-    local full_build="$6"
-    local gdb_bfd_archs="$7"
-    local artifacts_dir="$8"
+    local artifacts_dir="$3"
     local target_arch="host"
 
-    gdb_build_dir="$(build_gdb "$gdb_dir" "$target_arch" "$libiconv_prefix" "$libgmp_prefix" "$libmpfr_prefix" "$liblzma_prefix" "$full_build" "$gdb_bfd_archs")"
+    gdb_build_dir="$(build_gdb "$gdb_dir" "$target_arch" "$libiconv_prefix")"
     if [[ $? -ne 0 ]]; then
         return 1
     fi
-
-#    install_gdb "$gdb_build_dir" "$artifacts_dir" "$target_arch" "$full_build"
-#    if [[ $? -ne 0 ]]; then
-#        return 1
-#    fi
 }
 
 function build_gdb_with_dependencies() {
@@ -798,57 +478,21 @@ function build_gdb_with_dependencies() {
         return 1
     fi
 
-    gmp_build_dir="$(build_libgmp "$packages_dir/gmp")"
+    set_up_base_lib_search_paths "$iconv_build_dir"
+
+    local libffi_install_dir="$(build_libffi "${packages_dir}/libffi" "host")"
+    setup_libffi_env "${libffi_install_dir}"
+
+    local gdb_python_dir="$packages_dir/binutils-gdb/gdb/python/lib/"
+    local pygments_source_dir="$packages_dir/pygments/"
+    local python_build_dir="$(build_python "$packages_dir/cpython-static" "$gdb_python_dir" "$pygments_source_dir")"
     if [[ $? -ne 0 ]]; then
         return 1
     fi
-
-    mpfr_build_dir="$(build_libmpfr "$packages_dir/mpfr" "$gmp_build_dir")"
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    ncursesw_build_dir="$(build_ncurses "$packages_dir/ncurses")"
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    libexpat_build_dir="$(build_libexpat "$packages_dir/libexpat")"
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    lzma_build_dir="$(build_lzma "$packages_dir/xz")"
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-
-    set_up_base_lib_search_paths "$iconv_build_dir" \
-                                 "$gmp_build_dir" \
-                                 "$mpfr_build_dir" \
-                                 "$ncursesw_build_dir" \
-                                 "$libexpat_build_dir"
-
-    # Optional build components
-
-        local libffi_install_dir="$(build_libffi "${packages_dir}/libffi" )"
-        setup_libffi_env "${libffi_install_dir}"
-
-        local gdb_python_dir="$packages_dir/binutils-gdb/gdb/python/lib/"
-        local pygments_source_dir="$packages_dir/pygments/"
-        local python_build_dir="$(build_python "$packages_dir/cpython-static" "$gdb_python_dir" "$pygments_source_dir")"
-        if [[ $? -ne 0 ]]; then
-            return 1
-        fi
 
 
     build_and_install_gdb "$packages_dir/binutils-gdb" \
                           "$iconv_build_dir" \
-                          "$gmp_build_dir" \
-                          "$mpfr_build_dir" \
-                          "$lzma_build_dir" \
-                          "yes" \
-                          "$gdb_bfd_archs" \
                           "$artifacts_dir"
 
     if [[ $? -ne 0 ]]; then
@@ -871,14 +515,15 @@ function main() {
 
 SRC_ROOT_DIR="$(cd $(dirname "$0");cd ..;pwd)"
 
-if [ ! -d "$1/packages" ];then
-  mkdir -p "$1/packages"
-fi
-rm "$1/packages/*" -rf
-"$SRC_ROOT_DIR/compilation/download_packages.sh"  "$1/packages"
-for x in $SRC_ROOT_DIR/submodule_packages/*;do
-    cp -R "$x" "$1/packages/"
-done
-sudo apt install -y docbook2x m4 build-essential autoconf flex bison libtool autopoint pkg-config libzstd-dev libssl-dev xxhash wget curl libssl-dev libtinfo-dev libreadline-dev
+#if [ ! -d "$1/packages" ];then
+#  mkdir -p "$1/packages"
+#fi
+#rm "$1/packages/*" -rf
+#"$SRC_ROOT_DIR/compilation/download_packages.sh"  "$1/packages"
+#for x in $SRC_ROOT_DIR/submodule_packages/*;do
+#    cp -R "$x" "$1/packages/"
+#done
+sudo apt install -y docbook2x m4 build-essential autoconf flex bison libtool autopoint pkg-config libzstd-dev libssl-dev
+sudo apt install -y xxhash wget curl libssl-dev libtinfo-dev libreadline-dev libgmp-dev libmpfr-dev libexpat-dev liblzma-dev libffi-dev libbz2-dev libgdbm-dev libdb-dev uuid-dev
 
 main "$@"
